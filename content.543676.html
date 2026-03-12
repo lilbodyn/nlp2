@@ -1,0 +1,131 @@
+
+<!-- saved from url=(0056)https://xl-static.rozetka.com.ua/cds/content.543676.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script>
+    !function() {
+        let domainRegExp = /^([\w-]+\.)*rozetka\.(com\.ua|pl|company)$/;
+        const observersTarget = [];
+
+        window.addEventListener("message", processMessage);
+        window.onstorage = (event) => {
+            const message = event.key ? {
+                storageType: getStorageType(event.storageArea),
+                action: "getItem",
+                item: {
+                    key: event.key,
+                    value: event.newValue
+                }
+            } : {
+                storageType: getStorageType(event.storageArea),
+                action: "clear"
+            };
+            observersTarget.forEach((target) => {
+                postMessage(message, target);
+                updateStorageMessage(event.storageArea, target);
+            });
+        };
+
+        function processMessage(event) {
+            let url = new URL(event.origin);
+
+            if (!domainRegExp.test(url.hostname)) {
+                return;
+            }
+
+            let storage = getStorageByType(event.data.storageType);
+            let target = event.origin || event.originalEvent.origin;
+
+            if (storage) {
+                switch (event.data.action) {
+                    case "observe": {
+                        if (!observersTarget.includes(target)) {
+                            observersTarget.push(target);
+                        }
+                        break;
+                    }
+                    case "getItem": {
+                        let key = event.data.item.key;
+                        let value = storage.getItem(key);
+                        postMessage({
+                            storageType: getStorageType(storage),
+                            action: "getItem", item: {
+                                key,
+                                value
+                            }
+                        }, target);
+                        break;
+                    }
+                    case "getStorage": {
+                        updateStorageMessage(storage, target);
+                        break;
+                    }
+                    case "setItem": {
+                        let key = event.data.item.key;
+                        let value = event.data.item.value;
+                        storage.setItem(key, value);
+                        postMessage({
+                            storageType: getStorageType(storage),
+                            action: "getItem", item: {
+                                key,
+                                value
+                            }
+                        }, target);
+                        updateStorageMessage(storage, target);
+                        break;
+                    }
+                    case "removeItem": {
+                        let key = event.data.item.key;
+                        storage.removeItem(key);
+                        postMessage({
+                            storageType: getStorageType(storage),
+                            action: "getItem", item: {
+                                key,
+                                value: null
+                            }
+                        }, target);
+                        updateStorageMessage(storage, target);
+                        break;
+                    }
+                    case "clear":
+                        storage.clear();
+                        postMessage({
+                            storageType: getStorageType(storage),
+                            action: "clear"
+                        }, target);
+                        updateStorageMessage(storage, target);
+                        break;
+                }
+            }
+        }
+
+        function postMessage(data, target) {
+            window.parent.postMessage(data, target);
+        }
+
+        function getStorageType(storage) {
+            return storage === window.localStorage ? "localStorage" : "sessionStorage";
+        }
+
+        function getStorageByType(storageType) {
+            switch (storageType) {
+                case "sessionStorage":
+                    return window.sessionStorage;
+                case "localStorage":
+                    return window.localStorage;
+                default:
+                    return window.localStorage;
+            }
+        }
+
+        function getStorageData(storage) {
+            return JSON.parse(JSON.stringify(storage));
+        }
+
+        function updateStorageMessage(storage, target) {
+            postMessage({
+                storageType: getStorageType(storage),
+                action: "getStorage",
+                item: getStorageData(storage)
+            }, target);
+        }
+    }();</script>
+</head><body></body></html>
